@@ -50,6 +50,19 @@ Layer.prototype.handle_request = function(req, res, next) {
   }
 };
 
+Layer.prototype.handle_error = function handle_error(err, req, res, next) {
+  let fn = this.handle;
+
+  //处理异常的中间件必须有四个参数，否则继续传递下去
+  if (fn.length !== 4) return next(err);
+
+  try {
+    fn(err, req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = Layer;
 
 function decode_param(val) {

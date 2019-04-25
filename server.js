@@ -17,11 +17,25 @@ server.use("/admin", function(req, res, next) {
 server.use("/admin", function(req, res, next) {
   let name = req.query.name ? req.query.name : "world";
   str += name;
-  next();
+
+  try {
+    throw new Error("happen error");
+  } catch (error) {
+    next(error);
+  }
 });
 
 server.use("/admin", function(req, res) {
   str += " !!!";
   res.writeHead(200);
   res.end(str);
+});
+
+//处理错误中间件
+server.use("/admin", function(err, req, res, next) {
+  console.log("log err");
+  let status = err.status || 500;
+  let msg = err.message || "服务器错误";
+  res.writeHead(status);
+  res.end(msg);
 });

@@ -7,13 +7,14 @@ const done = require("./util/done");
 
 let app = {};
 
-app.handle = function(req, res) {
+app.handle = function(req, res, cb) {
+  var _done = cb || done;
   if (!this._router) {
     debug("no routes defined on app");
     done(req, res);
     return;
   }
-  this._router.handle(req, res);
+  this._router.handle(req, res, _done);
 };
 
 app.use = function(path, fn) {

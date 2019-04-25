@@ -1,7 +1,6 @@
 const url = require("url");
 const debug = require("debug")("demo:router:index");
 const Layer = require("./layer");
-const done = require("../util/done");
 
 //const HTTP_METHODS = ["get", "put", "delete", "post"];
 
@@ -31,11 +30,11 @@ Router.prototype.match = function(pathname) {
   return layers;
 };
 
-Router.prototype.handle = function(req, res) {
+Router.prototype.handle = function(req, res, done) {
   let pathname = url.parse(req.url).pathname;
 
   let layers = this.match(pathname);
-  if (layers.length) {
+  if (layers && layers.length > 0) {
     execute(req, res, layers);
   } else {
     done(req, res);
@@ -44,11 +43,13 @@ Router.prototype.handle = function(req, res) {
 
 function execute(req, res, layers) {
   let next = function(err) {
-    if (err) return done(err);
-
     let layer = layers.shift();
+    if (!layer) return;
 
-    if (layer) {
+    if (err) {
+      // 有异常则传给处理异常的中间件处理
+      layer.handle_error(err, req, res, next);
+    } else {
       // 传入next()函数，使中间件执行结束后递归
       layer.handle_request(req, res, next);
     }
