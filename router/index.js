@@ -4,17 +4,33 @@ const Layer = require("./layer");
 
 //const HTTP_METHODS = ["get", "put", "delete", "post"];
 
-function Router() {
-  this.stack = [];
+module.exports = proto;
+
+function proto() {
+  function router(req, res, next) {
+    router.handle(req, res, next);
+  }
+  Object.setPrototypeOf(router, proto);
+
+  router.stack = [];
+
+  return router;
 }
 
-Router.prototype.use = function(path, fn) {
-  let layer = new Layer(path, fn);
-
+proto.use = function(path, fn) {
+  let layer = new Layer(
+    path,
+    {
+      sensitive: false,
+      strict: false,
+      end: false
+    },
+    fn
+  );
   this.stack.push(layer);
 };
 
-Router.prototype.match = function(pathname) {
+proto.match = function(pathname) {
   let layers = [];
   let stack = this.stack;
 
@@ -30,21 +46,51 @@ Router.prototype.match = function(pathname) {
   return layers;
 };
 
-Router.prototype.handle = function(req, res, done) {
-  let pathname = url.parse(req.url).pathname;
+proto.handle = function(req, res, done) {
+  let parentUrl = req.baseUrl || ""; //保留上一级的路径
+
+  req.baseUrl = parentUrl; //保存所有use(path,fn)的path拼接起来的路径
+  req.originalUrl = req.originalUrl || req.url; //保留原始的url
+
+  let pathname = getPathname(req.url);
 
   let layers = this.match(pathname);
+
   if (layers && layers.length > 0) {
-    execute(req, res, layers);
+    execute(req, res, layers, pathname, parentUrl);
   } else {
     done(req, res);
   }
 };
 
-function execute(req, res, layers) {
+function execute(req, res, layers, path, parentUrl) {
+  let removed;
+
   let next = function(err) {
     let layer = layers.shift();
     if (!layer) return;
+
+    let layerPath = layer.path;
+
+    if (layerPath !== undefined) {
+      let c = path[layerPath.length];
+      if (c && c !== "/" && c !== ".") return next(err);
+
+      removed = layerPath;
+      req.url = req.url.slice(removed.length);
+
+      if (req.url[0] !== "/") {
+        req.url = "/" + req.url;
+      }
+
+      req.baseUrl =
+        parentUrl +
+        (removed[removed.length - 1] === "/"
+          ? removed.substring(0, removed.length - 1)
+          : removed);
+
+      debug("baseUrl:", req.baseUrl);
+    }
 
     if (err) {
       // 有异常则传给处理异常的中间件处理
@@ -58,12 +104,12 @@ function execute(req, res, layers) {
   next();
 }
 
-module.exports = Router;
-
+function getPathname(reqUrl) {
+  return url.parse(reqUrl).pathname;
+}
 //TODO
 // HTTP_METHODS.forEach(method => {
-//   routes[method] = {}
-//   Router[method] = function(path, action) {
+//   Router[method] = function(path, fn) {
 
 //   }
 // })
