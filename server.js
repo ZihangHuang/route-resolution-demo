@@ -39,3 +39,17 @@ server.use("/admin", function(err, req, res, next) {
   res.writeHead(status);
   res.end(msg);
 });
+
+const router = app.Router();
+
+router.use("/abc", function(req, res, next) {
+  let obj = {
+    baseUrl: req.baseUrl,
+    url: req.url,
+    originalUrl: req.originalUrl
+  };
+  console.log(obj);
+  res.end("i am nest router");
+});
+
+server.use("/index", router);

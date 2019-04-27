@@ -34,7 +34,7 @@ app.use = function(path, fn) {
   if (typeof fn === "undefined") {
     throw new Error("Expected a middleware function as second argument.");
   } else {
-    if (typeof fn !== "function") {
+    if (typeof fn !== "function" && !(fn instanceof Router)) {
       throw new TypeError("Expected middleware is a function.");
     }
   }
@@ -56,4 +56,6 @@ function createApp() {
   return application;
 }
 
-module.exports = createApp;
+exports = module.exports = createApp;
+
+exports.Router = Router;

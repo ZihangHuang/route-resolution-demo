@@ -3,20 +3,40 @@ const debug = require("debug")("demo:router:layer");
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
-function Layer(path, fn) {
-  if (!(this instanceof Layer)) return new Layer(path.fn);
+function Layer(path, options, fn) {
+  if (!(this instanceof Layer)) return new Layer(path, options, fn);
 
   debug("new %o", path);
+  let opts = options || {};
   let keys = [];
-  this.regexp = pathToRegexp(path, keys);
-  this.keys = keys; //保存参数等信息
+
+  this.regexp = pathToRegexp(path, keys, opts);
+  this.keys = keys; //保存参数等信息，有带类似:id时才有
   this.handle = fn;
+  this.name = fn.name;
   this.params = undefined;
   this.path = undefined;
+
+  this.regexp.fast_star = path === "*";
+  this.regexp.fast_slash = path === "/";
 }
 
 Layer.prototype.match = function(path) {
-  let match = this.regexp.exec(path);
+  let match;
+  if (path != null) {
+    if (this.regexp.fast_slash) {
+      this.params = {};
+      this.path = "";
+      return true;
+    }
+
+    if (this.regexp.fast_star) {
+      this.params = { "0": decode_param(path) };
+      this.path = path;
+      return true;
+    }
+    match = this.regexp.exec(path);
+  }
 
   if (!match) {
     this.params = undefined;
@@ -42,7 +62,6 @@ Layer.prototype.match = function(path) {
 
 Layer.prototype.handle_request = function(req, res, next) {
   let fn = this.handle;
-
   try {
     fn(req, res, next);
   } catch (err) {
