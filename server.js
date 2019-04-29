@@ -6,8 +6,8 @@ server.listen(8888, () => {
   console.log("listening: http://localhost:8888");
 });
 
+//中间件传递
 var str = "";
-
 server.use("/admin", function(req, res, next) {
   str = "hello ";
   req.query = url.parse(req.url, true).query;
@@ -31,7 +31,7 @@ server.use("/admin", function(req, res) {
   res.end(str);
 });
 
-//处理错误中间件
+//处理错误中间件(4个参数)
 server.use("/admin", function(err, req, res, next) {
   console.log("log err");
   let status = err.status || 500;
@@ -40,16 +40,34 @@ server.use("/admin", function(err, req, res, next) {
   res.end(msg);
 });
 
-const router = app.Router();
+//支持get,post,put,delete方法，路径要精确匹配
+var str2 = "";
+server.get("/info", function info1(req, res, next) {
+  str2 += "hello ";
+  next();
+});
 
-router.use("/abc", function(req, res, next) {
+server.get("/info", function info2(req, res) {
+  str2 += "jack";
+  res.end(str2);
+});
+
+//嵌套路由
+const router = app.Router();
+router.get("/abc/:id", function abc(req, res, next) {
   let obj = {
-    baseUrl: req.baseUrl,
-    url: req.url,
-    originalUrl: req.originalUrl
+    baseUrl: req.baseUrl, //'/index'
+    url: req.url, //'/abc/123'
+    originalUrl: req.originalUrl, //'/index/abc/123'
+    params: req.params //{id: 123}
   };
-  console.log(obj);
-  res.end("i am nest router");
+  //console.log(obj);
+  res.end(JSON.stringify(obj));
 });
 
 server.use("/index", router);
+
+//404(应该写在最后)
+server.use("*", function(req, res) {
+  res.end("404");
+});

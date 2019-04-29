@@ -1,8 +1,10 @@
 const url = require("url");
 const debug = require("debug")("demo:router:index");
 const Layer = require("./layer");
+const HTTP_METHODS = require("../util/methods").methods;
 
-//const HTTP_METHODS = ["get", "put", "delete", "post"];
+const doneError = require("../util/done").doneError;
+const done = require("../util/done").done;
 
 module.exports = proto;
 
@@ -30,7 +32,7 @@ proto.use = function(path, fn) {
   this.stack.push(layer);
 };
 
-proto.match = function(pathname) {
+proto.match = function(pathname, reqMethod) {
   let layers = [];
   let stack = this.stack;
 
@@ -38,9 +40,13 @@ proto.match = function(pathname) {
     let layer = stack[i];
     //路径正则匹配
     let matched = layer.match(pathname);
-    debug("matched:", matched);
+    debug(layer.originalPath, " matched: ", matched);
     if (matched) {
-      layers = layers.concat(layer);
+      let isRoute = layer.route;
+      //如果是路由中间件，请求方法要对应上
+      if (!isRoute || (isRoute && layer.method === reqMethod)) {
+        layers = layers.concat(layer);
+      }
     }
   }
   return layers;
@@ -49,31 +55,43 @@ proto.match = function(pathname) {
 proto.handle = function(req, res, done) {
   let parentUrl = req.baseUrl || ""; //保留上一级的路径
 
-  req.baseUrl = parentUrl; //保存所有use(path,fn)的path拼接起来的路径
+  req.baseUrl = parentUrl; //保存use(path,fn)的path拼接起来的路径
   req.originalUrl = req.originalUrl || req.url; //保留原始的url
 
   let pathname = getPathname(req.url);
+  let reqMethod = req.method.toLowerCase(); //请求方法
 
-  let layers = this.match(pathname);
-
-  if (layers && layers.length > 0) {
-    execute(req, res, layers, pathname, parentUrl);
+  let layers = this.match(pathname, reqMethod);
+  //debug("matched layers:", layers);
+  if (layers.length > 0) {
+    execute(req, res, layers, pathname, parentUrl, done);
   } else {
-    done(req, res);
+    done(req, res); //当嵌套路由时，此done可能实为next
   }
 };
 
-function execute(req, res, layers, path, parentUrl) {
+function execute(req, res, layers, pathname, parentUrl) {
   let removed;
 
   let next = function(err) {
     let layer = layers.shift();
-    if (!layer) return;
+    if (!layer) {
+      if (!err) return;
+
+      //嵌套路由时，该err为req
+      if (err instanceof Error) {
+        return doneError(req, res)(err);
+      } else {
+        return done(req, res);
+      }
+    }
 
     let layerPath = layer.path;
+    let isRoute = layer.route;
 
-    if (layerPath !== undefined) {
-      let c = path[layerPath.length];
+    //是普通中间件且路径不是/
+    if (!isRoute && layerPath) {
+      let c = pathname[layerPath.length];
       if (c && c !== "/" && c !== ".") return next(err);
 
       removed = layerPath;
@@ -88,10 +106,10 @@ function execute(req, res, layers, path, parentUrl) {
         (removed[removed.length - 1] === "/"
           ? removed.substring(0, removed.length - 1)
           : removed);
-
-      debug("baseUrl:", req.baseUrl);
+      //debug("baseUrl:", req.baseUrl);
     }
 
+    req.params = layer.params;
     if (err) {
       // 有异常则传给处理异常的中间件处理
       layer.handle_error(err, req, res, next);
@@ -107,9 +125,21 @@ function execute(req, res, layers, path, parentUrl) {
 function getPathname(reqUrl) {
   return url.parse(reqUrl).pathname;
 }
-//TODO
-// HTTP_METHODS.forEach(method => {
-//   Router[method] = function(path, fn) {
 
-//   }
-// })
+//支持四种http方法
+HTTP_METHODS.forEach(method => {
+  proto[method] = function(path, fn) {
+    let layer = new Layer(
+      path,
+      {
+        sensitive: false,
+        strict: false,
+        end: true
+      },
+      fn
+    );
+    layer.route = true; //添加路由中间件标记，与普通中间件区分开
+    layer.method = method;
+    this.stack.push(layer);
+  };
+});
