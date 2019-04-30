@@ -64,7 +64,7 @@ proto.handle = function(req, res, done) {
   let layers = this.match(pathname, reqMethod);
   //debug("matched layers:", layers);
   if (layers.length > 0) {
-    execute(req, res, layers, pathname, parentUrl, done);
+    execute(req, res, layers, pathname, parentUrl);
   } else {
     done(req, res); //当嵌套路由时，此done可能实为next
   }
