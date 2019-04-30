@@ -6,8 +6,11 @@ const Router = require("./router");
 const done = require("./util/done").done;
 const HTTP_METHODS = require("./util/methods").methods;
 
+const appstatic = require("./middleware/static");
+
 exports = module.exports = createApp;
 exports.Router = Router;
+exports.static = appstatic;
 
 let app = {};
 

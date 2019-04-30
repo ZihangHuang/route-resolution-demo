@@ -67,6 +67,8 @@ router.get("/abc/:id", function abc(req, res, next) {
 
 server.use("/index", router);
 
+server.use("/static", app.static(__dirname + "/static"));
+
 //404(应该写在最后)
 server.use("*", function(req, res) {
   res.end("404");
