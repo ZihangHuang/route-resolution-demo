@@ -1,7 +1,7 @@
 const app = require("./app.js");
 const url = require("url");
 
-server = app();
+let server = app();
 server.listen(8888, () => {
   console.log("listening: http://localhost:8888");
 });

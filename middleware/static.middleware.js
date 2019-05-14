@@ -5,7 +5,7 @@ const debug = require("debug")("demo:middleware:static");
 const done = require("../util/done").done;
 const doneError = require("../util/done").doneError;
 
-function static(staticPath) {
+function staticMiddleware(staticPath) {
   return function(req, res, next) {
     if (req.method.toLowerCase() !== "get") {
       res.writeHead(405, { Allow: "GET", "Content-Length": 0 });
@@ -36,4 +36,4 @@ function static(staticPath) {
   };
 }
 
-module.exports = static;
+module.exports = staticMiddleware;
